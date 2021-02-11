@@ -9,7 +9,7 @@ $ cd compilers-skeletons-vub
 $ git checkout lab_sessions
 ```
 
-Use ~git pull~ inside the repo to update the repo.
+Use `git pull` inside the repo to update the repo.
 
 The other branches will be used for the projects.
 
