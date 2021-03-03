@@ -30,7 +30,30 @@
  compile-a3)
 
 ;; TODO: Fill in.
-;; You'll want to merge milestone-2 code in
+;; You'll want to merge milestone-2 code here
+
+;; Exercise 1
+(define (undead-analysis p)
+  (TODO "Implement undead-analysis"))
+
+;; Exercise 2
+(define (conflict-analysis p)
+  (TODO "Implement conflict-analysis"))
+
+;; Exercise 3
+(define (assign-registers p)
+  (TODO "Implement assign-registers"))
+
+;; Exercise 4
+(define (assign-homes-opt p)
+  (TODO "Implement assign-homes-opt"))
+
+;; Exercise 5
+(define (compile-a2 p)
+  (TODO "Implement compile-a2"))
+
+(define (compile-a3 p)
+  (TODO "Implement compile-a3"))
 
 (module+ test
   (require
