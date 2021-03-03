@@ -5,11 +5,10 @@
  cpsc411/2c-run-time)
 
 (provide
+ link-paren-x64
  interp-paren-x64
- check-paren-x64
  interp-values-lang
 
- check-values-lang
  uniquify
  sequentialize-let
  canonicalize-bind
@@ -20,46 +19,48 @@
  assign-registers
  replace-locations
  assign-homes-opt
- assign-homes
- flatten-begins
+ optimize-predicates
+ expose-basic-blocks
+ resolve-predicates
+ flatten-program
  patch-instructions
  implement-fvars
- generate-x64
-
- compile-a2
- compile-a3)
+ generate-x64)
 
 ;; TODO: Fill in.
-;; You'll want to merge milestone-2 code here
+;; You'll want to merge milestone-3 code here
 
-;; Exercise 1
-(define (undead-analysis p)
-  (TODO "Implement undead-analysis"))
-
-;; Exercise 2
-(define (conflict-analysis p)
-  (TODO "Implement conflict-analysis"))
+(define (link-paren-x64 p)
+  (TODO "Design and implement link-paren-x64 for Exercise 2."))
 
 ;; Exercise 3
-(define (assign-registers p)
-  (TODO "Implement assign-registers"))
+(define (interp-paren-x64 p)
 
-;; Exercise 4
-(define (assign-homes-opt p)
-  (TODO "Implement assign-homes-opt"))
+  (define (eval-program env pc p)
+    (TODO "Finish designing eval-program for Exercise 3")
+    (if (= pc (length p))
+        (dict-ref env 'rax)
+        (eval-statement env pc p (list-ref p pc))))
 
-;; Exercise 5
-(define (compile-a2 p)
-  (TODO "Implement compile-a2"))
-
-(define (compile-a3 p)
-  (TODO "Implement compile-a3"))
+  (TODO "Redesign and implement interp-paren-x64 for Exercise 3."))
 
 (module+ test
   (require
    rackunit
    rackunit/text-ui
-   cpsc411/test-suite/public/a3)
+   cpsc411/langs/a4
+   cpsc411/test-suite/public/a4)
+
+  (define-check (check-timeout? th seconds)
+    (when (sync/timeout seconds (thread th))
+      (fail-check)))
+
+  (check-timeout?
+   (thunk
+    (interp-paren-x64
+     '(begin
+        (define L.f.10 (jump L.f.10)))))
+   2)
 
   ;; You can modify this pass list, e.g., by adding check-assignment, or other
   ;; debugging and validation passes.
@@ -67,28 +68,30 @@
   ;; suite.
   (current-pass-list
    (list
-    check-values-lang
+    ;check-values-lang
     uniquify
     sequentialize-let
     canonicalize-bind
     select-instructions
     assign-homes-opt
-    flatten-begins
+    optimize-predicates
+    expose-basic-blocks
+    resolve-predicates
+    flatten-program
     patch-instructions
     implement-fvars
-    check-paren-x64
+    ;check-paren-x64
     generate-x64
     wrap-x64-run-time
     wrap-x64-boilerplate))
 
   (run-tests
-   (a3-public-test-suite
+   (a4-public-test-suite
     (current-pass-list)
+    link-paren-x64
     interp-paren-x64
-    check-paren-x64
     interp-values-lang
 
-    check-values-lang
     uniquify
     sequentialize-let
     canonicalize-bind
@@ -99,8 +102,10 @@
     assign-registers
     replace-locations
     assign-homes-opt
-    assign-homes
-    flatten-begins
+    optimize-predicates
+    expose-basic-blocks
+    resolve-predicates
+    flatten-program
     patch-instructions
     implement-fvars
     generate-x64
