@@ -1,0 +1,139 @@
+* general comments
+** lack of *design*
+1. Look at the bnf's and reason with pen & paper
+2. write meaningful examples (interrogator)
+3. implement the code
+4. test it using you examples
+It will in fact save you (a lot) of time to design your code before implementing it.
+** documentation
+For each function write
+- an approximative type signature
+- a pre / post condition
+- a 1sentence description
+Doing this will help you
+** types
+An imaginary type discipline can help you improving your code a lot.
+*** example1
+#+BEGIN_SRC scheme
+;; ::paren-x64-v1 -> maybe( paren-x64-v1 )
+(define check-paren-x64 ...)
+
+(define foo expr
+  (if (check-paren-x64 expr) #t #f))
+#+END_SRC
+Bad programmation because intuitively "if" expects a boolean, not a ~maybe( paren-x64-v1)~.
+*** example2
+#+BEGIN_SRC scheme
+  (define (statement->x64 s)
+    (match s
+      [`((set! ,reg (,binop ,reg ,operand)) ,rest ...) branch1]
+      [`((set! ,reg ,operand) ,rest ...) branch2]
+      [`(set! ,reg (,binop ,reg ,operand)) branch3]
+      [`(set! ,reg ,operand) branch4]))
+#+END_SRC
+Following our imaginary type discipline, why would the above code be ill typed?
+** avoid cond / cons car cdr
+prefer match /  quasiquotes
+** catching up
+why improving project A?
+- subsequent projects are based on project A
+- they are also more difficult so take projectA as an opportunity to learn more 'basic' concepts.
+- some kind of catching-up mechanism/grade mitigation will be put in place. nothing decided yet.
+* designing a pass
+we design the pass patch-instructions :: para-asm-lang-v2  ->  paren-x64-fvars-v2
+** step1: familiarize with source and target
+Write the grammar of the source and target languages *on paper*.
+Write _involved SOURCE examples_ (valid and unvalid)
+Hand compile them
+*** SOURCE = Para-asm-lang-v2
+p      ::= (begin effect ... (halt triv))
+effect ::= (set! loc triv)
+           (set! loc1 (binop loc1 triv))
+triv   ::= int64 | loc    = int64 | reg' | fvar
+loc    ::= reg | fvar
+reg'    ::= all regs except r10 r11
+binop, int64, fvar ::= ...
+*** TARGET = Paren-x64-fvars-v2
+p ::= (begin s ...)
+s ::= (set! fvar int32)
+      (set! fvar reg)
+      (set! reg loc)
+      (set! reg triv)
+      (set! reg1 (binop reg1 int32))
+      (set! reg1 (binop reg1 loc))
+triv ::= reg | int64
+loc ::= reg | fvar
+reg, binop, int64, int32, fvar ::= ...
+*** hand-compile meaningful examples
+4 294 967 295+1 is an int64 that is not an int32
+#+BEGIN_SRC scheme
+(patch-instructions
+'(begin (set! fv0 4294967296) ;no analogue in TARGET
+        (set! r12 20)
+	(set! fv0 (+ fv0 r12)) ;no analogue in TARGET
+        (halt fv0) ) ;no analogue in TARGET
+)
+
+;actual
+'(begin
+  (set! r10 4294967296) ; transition by r10 because of int32 limitation
+  (set! fv0 r10) ; (set! fv0 4294967296)
+  (set! r12 20) ; (set! r12 20)
+  (set! r10 fv0)
+  (set! r10 (+ r10 r12))
+  (set! fv0 r10) ; (set! fv0 (+ fv0 r12))
+  (set! rax fv0)) ;(halt fv0)
+#+END_SRC
+The *interrogator* can be very helpful
+** step2: design the pass (patch-instructions)
+*** predicate for SOURCE data
+reg'? binop? int64? fvar? loc? triv?
+of course those can change from language to language
+*** translate SOURCE code non-terminals
+p      ::= (begin effect ... (halt triv))
+effect ::= (set! loc triv)
+           (set! loc1 (binop loc1 triv))
+triv   ::= int64 | loc    = int64 | reg' | fvar
+loc    ::= reg' | fvar
+
+p ::= (begin s ...)
+s ::= (set! fvar int32)
+      (set! fvar reg)
+      (set! reg loc)
+      (set! reg triv)
+      (set! reg1 (binop reg1 int32))
+      (set! reg1 (binop reg1 loc))
+**** source effects -> target s
+unfold effect non terminal
+#+BEGIN_SRC scheme
+effect =
+ (set! loc triv) = (set! reg' int64)
+                  (set! fvar int64) ;/!\ not in target
+                  (set! reg' reg')
+		  (set! fvar reg')
+		  (set! reg' fvar)
+		  (set! fvar fvar) ;/!\ not in target
+OR
+(set! loc1 (binop loc1 triv)) = (set! reg'1 (binop reg'1 int64)) ;/!\ not in target
+                                (set! reg'1 (binop reg'1 reg'))
+                                (set! reg'1 (binop reg'1 fvar))
+                                (set! fvar (binop fvar int64)) ;/!\ not in target
+                                (set! fvar1 (binop fvar1 reg'));/!\ not in target
+                                (set! fvar1 (binop fvar1 fvar));/!\ not in target
+#+END_SRC
+(set! fvar1 (binop fvar1 reg')) becomes:
+
+(set! r10 fvar1)
+(set! r10 (binop r10 reg'))
+(set! fvar1 r10)
+**** source p -> target p
+can just translate effects, as well as halt statement.
+#+BEGIN_SRC scheme
+(match p
+  [`(begin effects ... (halt ,triv))
+  #:when (triv? triv)
+  (define ss (append-map effect->s effects))
+  `(begin ,@ss (set! rax ,triv)) ])
+#+END_SRC
+** step3: write your code
+this should be a lot easier now
