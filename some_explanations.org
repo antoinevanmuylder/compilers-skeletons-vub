@@ -1,0 +1,98 @@
+* undead analysis :: asm-lang-v2/locals -> asm-lang-v2/undead
+this pass decorates the code with undead out sets.
+recall asm-lang-v2/locals syntax:
+#+BEGIN_SRC bnf
+ all we have is alocs. no registers and frame variables anymore
+ p ::= (module info tail)
+ tail ::= (halt triv)
+          (begin effect ... tail)
+ effect ::= (set! aloc triv)
+            (set! aloc1 (binop aloc1 triv))
+	    (begin effect ... effect)
+ triv ::= int64 | aloc
+#+END_SRC
+Example of program
+#+BEGIN_SRC racket
+(begin
+        (set! v.1 1)
+        (set! w.2 46)
+        (set! x.3 v.1)
+        (set! p.1 7)
+        (set! x.3 (+ x.3 p.1))
+        (set! y.4 x.3)
+        (set! p.1 4)
+        (set! y.4 (+ y.4 p.1))
+        (set! z.5 x.3)
+        (set! z.5 (+ z.5 w.2))
+        (set! t.6 y.4)
+        (set! p.1 -1)
+        (set! t.6 (* t.6 p.1))
+        (set! z.5 (+ z.5 t.6))
+        (halt z.5))
+#+END_SRC
+For each instruction we are going to compute its undead out set.
+We start with the last instruction (which has an empty undead out set)
+and go up in the instruction list (actually tree).
+Lets say we've analysed instruction J which comes right after I in the program.
+undead-out( I ) is computed like so:
+- current UO( I ) is first defined as UO (J )
+- then we remove some stuff from UO( I ): the variables appearing in J that are /assigned/ (left hand side)
+  UO(I) = UO(I) - assigned vars from J
+- and we add the variables that are /used/ (right hand side)
+  UO(I) = UO(I) + used vars from J
+#+BEGIN_SRC racket
+(begin
+        (set! v.1 1)
+        (set! w.2 46)
+        (set! x.3 v.1)
+        (set! p.1 7)
+        (set! x.3 (+ x.3 p.1))
+        (set! y.4 x.3)
+        (set! p.1 4)
+        (set! y.4 (+ y.4 p.1))
+        (set! z.5 x.3)
+	...
+        (set! z.5 (+ z.5 w.2))
+	z.5 t.6 -> z.5 -> z.5 y.4
+        (set! t.6 y.4)
+	z.5 t.6 p.1 -> z.5 t.6
+        (set! p.1 -1)
+	z.5 t.6 -> z.5 -> z.5 t.6 p.1
+        (set! t.6 (* t.6 p.1))
+	z.5 -> EMPTY -> z.5 t.6 ;remove assigned THEN add used
+        (set! z.5 (+ z.5 t.6))
+	EMPTY -> z.5 ; z.5 used
+        (halt z.5))
+	EMPTY
+#+END_SRC
+* conflict analysis :: asm-lang-v2/undead -> asm-lang-v2/conflicts
+This pass decorates the (already decorated) asm-lang-v2 program with a conflict graph.
+It traverses the program in whatever order and for each instruction/undead-out pair (  (set! lhs rhs) , UO  ) it declares conflicts following those rules:
+- Any variable defined during a non-move instruction is in conflict with every variable (except itself) in the undead-out set associated with the instruction. In other words, if the instruction is a non move instruction then we declare lhs in conflict with all the variables in UO.
+- Any variable defined during a move instruction is in conflict with every variable in the undead-out set associated with the instruction, except itself and the variable referenced in the move. In other words, if the instruction is a move instruction (eg (set! aloc.1 aloc.2) we declare lhs to be in conflict with every variable appearing in UO except lhs and rhs.
+We harvest the results of this analysis in an undirected graph structure.
+#+BEGIN_SRC racket
+(begin
+        (set! v.1 1)
+        (set! w.2 46)
+        (set! x.3 v.1)
+        (set! p.1 7)
+        (set! x.3 (+ x.3 p.1))
+        (set! y.4 x.3)
+        (set! p.1 4)
+        (set! y.4 (+ y.4 p.1))
+        (set! z.5 x.3)
+	...
+        (set! z.5 (+ z.5 w.2))
+	z.5 t.6 -> z.5 -> z.5 y.4
+        (set! t.6 y.4)
+	z.5 t.6 p.1 -> z.5 t.6 = UO | CONFLICT t.6 z.5 , t.6 p.1 (move instruction but doesnt affect result)
+        (set! p.1 -1)
+	z.5 t.6 -> z.5 -> z.5 t.6 p.1
+        (set! t.6 (* t.6 p.1))
+	z.5 -> EMPTY -> z.5 t.6 ;remove assigned THEN add used
+        (set! z.5 (+ z.5 t.6))
+	EMPTY -> z.5 ; z.5 used
+        (halt z.5))
+	EMPTY
+#+END_SRC
