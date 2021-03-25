@@ -116,3 +116,5 @@ alternative algorithm?
 - for each abstract location, assign either a register or a frame variable based on the conflict criterion:
   for all P register, for all A A' locations,
   A conflicts with A' => [  (P assigned to A') => not(P assigned to A) ]
+
+the graph coloring business appears in the reading because the algorithm we use is an adaptation of a graph colouring based register allocation mechanism.
