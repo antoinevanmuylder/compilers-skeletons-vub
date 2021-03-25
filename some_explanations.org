@@ -86,7 +86,7 @@ We harvest the results of this analysis in an undirected graph structure.
         (set! z.5 (+ z.5 w.2))
 	z.5 t.6 -> z.5 -> z.5 y.4
         (set! t.6 y.4)
-	z.5 t.6 p.1 -> z.5 t.6 = UO | CONFLICT t.6 z.5 , t.6 p.1 (move instruction but doesnt affect result)
+	z.5 t.6 p.1 -> z.5 t.6 = UO | CONFLICT t.6 z.5 (move instruction but doesnt affect result)
         (set! p.1 -1)
 	z.5 t.6 -> z.5 -> z.5 t.6 p.1
         (set! t.6 (* t.6 p.1))
