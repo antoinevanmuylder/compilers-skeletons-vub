@@ -96,3 +96,23 @@ We harvest the results of this analysis in an undirected graph structure.
         (halt z.5))
 	EMPTY
 #+END_SRC
+* assign-registers :: asm-lang-v2/conflicts -> asm-lang-v2/assignments
+the source language is decorated with a conflict graph (uncolored, undirected, irreflexive graph).
+We assign the abstract locations appearing in the source program using the info in the conflict graph.
+
+Here is the initial algorithm. Another version is given afterwards.
+- if the set of abstract locations is empty then return an empty assignment
+- k = number of assignable registers. Choose a low-degree abstract location i.e. an abstract location with fewer than k conflicts if it exists. Otherwise choose an arbitrary abstract location.
+- say that you have chosen the abstract location A.
+  remove A from both the set of abstract locations and the conflict graph (two parameters
+  of the algorithm). Call recursively the algorithm with those updated parameters.
+  This gives you an assignment list for all abstract locations except A.
+- Based on that information we try to assign A some physical location P.
+  - first try to assign a register. P should not have been chosen by an abstract location in conflict with A
+  - if it does not work, assign P a frame variable instead.
+
+alternative algorithm?
+- sort all abstract locations by degree (low degree first)
+- for each abstract location, assign either a register or a frame variable based on the conflict criterion:
+  for all P register, for all A A' locations,
+  A conflicts with A' => [  (P assigned to A') => not(P assigned to A) ]
